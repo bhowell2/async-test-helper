@@ -85,6 +85,22 @@ public class AsyncTestHelper {
 
 	/**
 	 *
+	 * @return
+	 */
+	public boolean isShutdown() {
+		return this.scheduler.isShutdown();
+	}
+
+	/**
+	 *
+	 * @return
+	 */
+	public boolean isTerminated() {
+		return this.scheduler.isTerminated();
+	}
+
+	/**
+	 *
 	 * @param count
 	 * @return
 	 */

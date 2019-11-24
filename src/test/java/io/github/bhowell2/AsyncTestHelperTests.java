@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class AsyncTestHelperTests {
 
 	@Test
-	public void shoudTimeout() throws Throwable {
+	public void shouldTimeout() throws Throwable {
 		assertThrows(TimeoutException.class, () -> {
 			AsyncTestHelper async = new AsyncTestHelper();
 			CountDownLatch latch = async.getNewLatch(1);
@@ -70,7 +70,7 @@ public class AsyncTestHelperTests {
 		async.submitToExecutor(1, TimeUnit.MICROSECONDS, () -> {
 			latch2.countDown();
 		});
-		async.await(5, TimeUnit.MILLISECONDS);
+		async.await(20, TimeUnit.MILLISECONDS);
 	}
 
 	@Test
@@ -89,20 +89,23 @@ public class AsyncTestHelperTests {
 			Thread.sleep(1);
 			latch2.countDown();
 		});
-		async.await(10, TimeUnit.MILLISECONDS);
+		async.await(20, TimeUnit.MILLISECONDS);
 	}
 
 	@Test
 	public void shouldShutdownAndNotBlock() throws Throwable {
+		AtomicBoolean didRun = new AtomicBoolean(false);
 		AsyncTestHelper async = new AsyncTestHelper(1);
-		long startTime = System.nanoTime();
 		async.submitToExecutor(() -> {
 			Thread.sleep(5);
+			didRun.set(true);
 		});
 		async.shutdown();
-		long stopTime = System.nanoTime();
-		// give some extra time for good measure
-		assertTrue(TimeUnit.MILLISECONDS.convert(stopTime - startTime, TimeUnit.NANOSECONDS) <= 3);
+		assertTrue(async.isShutdown());
+		assertFalse(async.isTerminated());
+		Thread.sleep(10);
+		assertTrue(async.isTerminated());
+		assertTrue(didRun.get());
 	}
 
 	@Test
