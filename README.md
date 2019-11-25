@@ -43,7 +43,6 @@ or `getWrappedCallable`. This will retrieve the exception on the test thread and
 thread. It should also be noted that so long as the async code is wrapped, `Assertions.*` can be used on other threads 
 (they throw exceptions) and they will fail the test as if they were called on the test thread.
 
-## Usage 
 ```java
 @Test
 public void shouldFailFromAsyncThrowable() throws Throwable {
@@ -68,6 +67,47 @@ public void shouldSuccessfullyAssertAsynchronously() throws Throwable {
         latch.countDown();
     });
     async.await();
+}
+```
+
+### Retry on Failure
+Sometimes async tests are just flaky due to the timing of the interleaving of threads - this problem becomes magnified 
+when running on fewer cores. Though it is advised the user try to avoid using this if possible, this is provided for the 
+most flaky of tests.
+
+```java
+@Test
+public void shouldSucceedWithRetry() throws Throwable {
+    AtomicInteger counter = new AtomicInteger(0);
+    AsyncTestHelper.retryOnFailure(5, () -> {
+        AsyncTestHelper async = new AsyncTestHelper();
+        CountDownLatch latch = async.getNewLatch(1);
+        async.submitToExecutor(() -> {
+            if (counter.getAndIncrement() < 3) {
+                throw new RuntimeException("Failed.");
+            }
+            latch.countDown();
+        });
+        async.await();
+    });
+    assertEquals(4, counter.get());
+}
+
+@Test
+public void shouldFailWithRetry() throws Throwable {
+    AtomicInteger counter = new AtomicInteger(0);
+    assertThrows(RuntimeException.class, () -> {
+        AsyncTestHelper.retryOnFailure(5, () -> {
+            AsyncTestHelper async = new AsyncTestHelper();
+            CountDownLatch latch = async.getNewLatch(1);
+            async.submitToExecutor(() -> {
+                counter.getAndIncrement();
+                throw new RuntimeException("Failed.");
+            });
+            async.await();
+        });
+    });
+    assertEquals(5, counter.get());
 }
 ```
 

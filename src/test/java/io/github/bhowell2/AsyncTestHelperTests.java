@@ -7,6 +7,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -30,7 +31,7 @@ public class AsyncTestHelperTests {
 		AsyncTestHelper async = new AsyncTestHelper();
 		CountDownLatch latch = async.getNewLatch(1);
 		latch.countDown();
-		async.await(1, TimeUnit.NANOSECONDS);
+		async.await(1, TimeUnit.MILLISECONDS);
 
 		AsyncTestHelper async2 = new AsyncTestHelper();
 		CountDownLatch latch2 = async2.getNewLatch(2);
@@ -41,7 +42,7 @@ public class AsyncTestHelperTests {
 		async2.submitToExecutor(() -> {
 			latch2.countDown();
 		});
-		async2.await(5, TimeUnit.MILLISECONDS);
+		async2.await(10, TimeUnit.MILLISECONDS);
 	}
 
 	@Test
@@ -226,7 +227,8 @@ public class AsyncTestHelperTests {
 		async.submitToExecutor(() -> {
 			async.completeImmediately();
 		});
-		async.await(5, TimeUnit.MILLISECONDS);
+		// latches are never called, but should not timeout because of completeImmediately call.
+		async.await(20, TimeUnit.MILLISECONDS);
 	}
 
 	@Test
@@ -250,6 +252,40 @@ public class AsyncTestHelperTests {
 			});
 			async.await();
 		});
+	}
+
+	@Test
+	public void shouldSucceedWithRetry() throws Throwable {
+		AtomicInteger counter = new AtomicInteger(0);
+		AsyncTestHelper.retryOnFailure(5, () -> {
+			AsyncTestHelper async = new AsyncTestHelper();
+			CountDownLatch latch = async.getNewLatch(1);
+			async.submitToExecutor(() -> {
+				if (counter.getAndIncrement() < 3) {
+					throw new RuntimeException("Failed.");
+				}
+				latch.countDown();
+			});
+			async.await();
+		});
+		assertEquals(4, counter.get());
+	}
+
+	@Test
+	public void shouldFailWithRetry() throws Throwable {
+		AtomicInteger counter = new AtomicInteger(0);
+		assertThrows(RuntimeException.class, () -> {
+			AsyncTestHelper.retryOnFailure(5, () -> {
+				AsyncTestHelper async = new AsyncTestHelper();
+				CountDownLatch latch = async.getNewLatch(1);
+				async.submitToExecutor(() -> {
+					counter.getAndIncrement();
+					throw new RuntimeException("Failed.");
+				});
+				async.await();
+			});
+		});
+		assertEquals(5, counter.get());
 	}
 
 }

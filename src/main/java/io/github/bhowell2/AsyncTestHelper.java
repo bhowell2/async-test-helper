@@ -19,6 +19,29 @@ public class AsyncTestHelper {
 	public static volatile long DEFAULT_AWAIT_TIME = 1;
 	public static volatile TimeUnit DEFAULT_AWAIT_TIME_UNIT = TimeUnit.MINUTES;
 
+	/**
+	 * Useful for some tests that can be flaky due to the timing of interleaving of threads.
+	 * @param maxRetryCount
+	 * @param runnable
+	 * @throws Throwable
+	 */
+	public static void retryOnFailure(int maxRetryCount, ThrowableRunnable runnable) throws Throwable {
+		Throwable err = null;
+		int count = maxRetryCount;
+		do {
+			// reset at beginning
+			err = null;
+			try {
+				runnable.run();
+			} catch (Throwable t) {
+				err = t;
+			}
+		} while (--count > 0 && err != null);
+		if (err != null) {
+			throw err;
+		}
+	}
+
 	ScheduledExecutorService scheduler;
 	volatile CountDownLatch[] latches = new CountDownLatch[0];
 	volatile Throwable throwable;
