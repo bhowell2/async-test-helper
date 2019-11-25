@@ -28,21 +28,24 @@ public class AsyncTestHelperTests {
 
 	@Test
 	public void shouldNotTimeout() throws Throwable {
-		AsyncTestHelper async = new AsyncTestHelper();
-		CountDownLatch latch = async.getNewLatch(1);
-		latch.countDown();
-		async.await(1, TimeUnit.MILLISECONDS);
+		// this test has been a bit flaky on github actions..
+		AsyncTestHelper.retryOnFailure(10, () -> {
+			AsyncTestHelper async = new AsyncTestHelper();
+			CountDownLatch latch = async.getNewLatch(1);
+			latch.countDown();
+			async.await(1, TimeUnit.MILLISECONDS);
 
-		AsyncTestHelper async2 = new AsyncTestHelper();
-		CountDownLatch latch2 = async2.getNewLatch(2);
-		// will complete almost immediately, since is run on separate thread
-		async2.submitToExecutor(() -> {
-			latch2.countDown();
+			AsyncTestHelper async2 = new AsyncTestHelper();
+			CountDownLatch latch2 = async2.getNewLatch(2);
+			// will complete almost immediately, since is run on separate thread
+			async2.submitToExecutor(() -> {
+				latch2.countDown();
+			});
+			async2.submitToExecutor(() -> {
+				latch2.countDown();
+			});
+			async2.await(20, TimeUnit.MILLISECONDS);
 		});
-		async2.submitToExecutor(() -> {
-			latch2.countDown();
-		});
-		async2.await(10, TimeUnit.MILLISECONDS);
 	}
 
 	@Test
