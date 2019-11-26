@@ -1,3 +1,6 @@
+![](https://github.com/bhowell2/async-test-helper/workflows/build/badge.svg)
+[![codecov](https://codecov.io/gh/bhowell2/async-test-helper/branch/master/graph/badge.svg)](https://codecov.io/gh/bhowell2/async-test-helper)
+![](https://img.shields.io/maven-central/v/io.github.bhowell2/async-test-helper)
 # Asynchronous Test Helper
 Provides some basic and streamlined functionality for writing asynchronous tests. There are two problems with async 
 testing: 
@@ -14,14 +17,14 @@ This may be obtained from the Maven Central repository.
 <dependency>
     <groupId>io.github.bhowell2</groupId>
     <artifactId>async-test-helper</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
 #### Gradle
 ```groovy
 dependencies {
-    compile "io.github.bhowell2:async-test-helper:1.0.0"
+    compile "io.github.bhowell2:async-test-helper:1.1.0"
 }
 ```
 
@@ -51,6 +54,8 @@ public void shouldFailFromAsyncThrowable() throws Throwable {
         async.getNewLatch(1);
         new Thread(() -> {
             async.wrapAsyncThrowable(() -> {
+                // if wrapping was not done (or even if it was), could 
+                // call async.fail() to achieve the same result.
                 throw new IllegalArgumentException("Failed!");
             });
         }).start();

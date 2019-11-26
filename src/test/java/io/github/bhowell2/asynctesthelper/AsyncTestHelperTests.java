@@ -1,4 +1,4 @@
-package io.github.bhowell2;
+package io.github.bhowell2.asynctesthelper;
 
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
@@ -21,7 +21,7 @@ public class AsyncTestHelperTests {
 	public void shouldTimeout() throws Throwable {
 		assertThrows(TimeoutException.class, () -> {
 			AsyncTestHelper async = new AsyncTestHelper();
-			CountDownLatch latch = async.getNewLatch(1);
+			CountDownLatch latch = async.getNewCountdownLatch(1);
 			async.await(5, TimeUnit.MILLISECONDS);
 		});
 	}
@@ -31,12 +31,12 @@ public class AsyncTestHelperTests {
 		// this test has been a bit flaky on github actions..
 		AsyncTestHelper.retryOnFailure(10, () -> {
 			AsyncTestHelper async = new AsyncTestHelper();
-			CountDownLatch latch = async.getNewLatch(1);
+			CountDownLatch latch = async.getNewCountdownLatch(1);
 			latch.countDown();
 			async.await(1, TimeUnit.MILLISECONDS);
 
 			AsyncTestHelper async2 = new AsyncTestHelper();
-			CountDownLatch latch2 = async2.getNewLatch(2);
+			CountDownLatch latch2 = async2.getNewCountdownLatch(2);
 			// will complete almost immediately, since is run on separate thread
 			async2.submitToExecutor(() -> {
 				latch2.countDown();
@@ -52,8 +52,8 @@ public class AsyncTestHelperTests {
 	public void shouldFailFromTimeoutFromMultipleLatches() throws Throwable {
 		assertThrows(TimeoutException.class, () -> {
 			AsyncTestHelper async = new AsyncTestHelper();
-			CountDownLatch latch = async.getNewLatch(1);
-			CountDownLatch latch2 = async.getNewLatch(1);
+			CountDownLatch latch = async.getNewCountdownLatch(1);
+			CountDownLatch latch2 = async.getNewCountdownLatch(1);
 			latch.countDown();
 			async.await(5, TimeUnit.MILLISECONDS);
 		});
@@ -62,7 +62,7 @@ public class AsyncTestHelperTests {
 	@Test
 	public void shouldCompleteSuccessfullyWithMultipleLatches() throws Throwable {
 		AsyncTestHelper async = new AsyncTestHelper();
-		CountDownLatch latch = async.getNewLatch(2);
+		CountDownLatch latch = async.getNewCountdownLatch(2);
 		// will complete almost immediately, since is run on separate thread
 		async.submitToExecutor(() -> {
 			latch.countDown();
@@ -70,7 +70,7 @@ public class AsyncTestHelperTests {
 		async.submitToExecutor(() -> {
 			latch.countDown();
 		});
-		CountDownLatch latch2 = async.getNewLatch(1);
+		CountDownLatch latch2 = async.getNewCountdownLatch(1);
 		async.submitToExecutor(1, TimeUnit.MICROSECONDS, () -> {
 			latch2.countDown();
 		});
@@ -80,7 +80,7 @@ public class AsyncTestHelperTests {
 	@Test
 	public void shouldCompleteSuccessfullyWithLatchCreatedOnSeparateThread() throws Throwable {
 		AsyncTestHelper async = new AsyncTestHelper();
-		CountDownLatch latch = async.getNewLatch(2);
+		CountDownLatch latch = async.getNewCountdownLatch(2);
 		// will complete almost immediately, since is run on separate thread
 		async.submitToExecutor(() -> {
 			latch.countDown();
@@ -89,7 +89,7 @@ public class AsyncTestHelperTests {
 			latch.countDown();
 		});
 		async.submitToExecutor(1, TimeUnit.MICROSECONDS, () -> {
-			CountDownLatch latch2 = async.getNewLatch(1);
+			CountDownLatch latch2 = async.getNewCountdownLatch(1);
 			Thread.sleep(1);
 			latch2.countDown();
 		});
@@ -157,7 +157,7 @@ public class AsyncTestHelperTests {
 	public void shouldFailFromAsyncThrowable() throws Throwable {
 		assertThrows(IllegalArgumentException.class, () -> {
 			AsyncTestHelper async = new AsyncTestHelper();
-			async.getNewLatch(1);
+			async.getNewCountdownLatch(1);
 			new Thread(() -> {
 				async.wrapAsyncThrowable(() -> {
 					throw new IllegalArgumentException("Failed!");
@@ -171,7 +171,7 @@ public class AsyncTestHelperTests {
 	public void shouldFailWhenFailureIsCalledOnAsyncTestHelper() throws Throwable {
 		assertThrows(Exception.class, () -> {
 			AsyncTestHelper async = new AsyncTestHelper();
-			async.getNewLatch(1);
+			async.getNewCountdownLatch(1);
 			async.submitToExecutor(() -> {
 				async.fail("Some failure!");
 			});
@@ -182,7 +182,7 @@ public class AsyncTestHelperTests {
 	@Test
 	public void shouldPassWrappedCallable() throws Throwable {
 		AsyncTestHelper async = new AsyncTestHelper();
-		CountDownLatch latch = async.getNewLatch(1);
+		CountDownLatch latch = async.getNewCountdownLatch(1);
 		new Thread(() -> {
 			// callable itself can throw, so must catch it..
 			try {
@@ -200,11 +200,11 @@ public class AsyncTestHelperTests {
 	@Test
 	public void shouldFailWrappedCallable() throws Throwable {
 		AsyncTestHelper asyncCallableCatch = new AsyncTestHelper();
-		CountDownLatch latchCallableCatch = asyncCallableCatch.getNewLatch(1);
+		CountDownLatch latchCallableCatch = asyncCallableCatch.getNewCountdownLatch(1);
 		try {
 			AsyncTestHelper async = new AsyncTestHelper();
 			// latch not used, because of thrown exception but needed for await to not exit immediately
-			CountDownLatch latch = async.getNewLatch(1);
+			CountDownLatch latch = async.getNewCountdownLatch(1);
 			new Thread(() -> {
 				try {
 					async.getWrappedCallable(() -> {
@@ -225,8 +225,8 @@ public class AsyncTestHelperTests {
 	@Test
 	public void shouldCompleteImmediately() throws Throwable {
 		AsyncTestHelper async = new AsyncTestHelper();
-		CountDownLatch latch1 = async.getNewLatch(1);
-		CountDownLatch latch2 = async.getNewLatch(2);
+		CountDownLatch latch1 = async.getNewCountdownLatch(1);
+		CountDownLatch latch2 = async.getNewCountdownLatch(2);
 		async.submitToExecutor(() -> {
 			async.completeImmediately();
 		});
@@ -237,7 +237,7 @@ public class AsyncTestHelperTests {
 	@Test
 	public void shouldSuccessfullyAssertAsynchronously() throws Throwable {
 		AsyncTestHelper async = new AsyncTestHelper();
-		CountDownLatch latch = async.getNewLatch(1);
+		CountDownLatch latch = async.getNewCountdownLatch(1);
 		async.submitToExecutor(() -> {
 			assertEquals(1, 1);
 			latch.countDown();
@@ -249,7 +249,7 @@ public class AsyncTestHelperTests {
 	public void shouldFailOnAsyncAssertions() throws Throwable {
 		assertThrows(AssertionFailedError.class, () -> {
 			AsyncTestHelper async = new AsyncTestHelper();
-			async.getNewLatch(1);
+			async.getNewCountdownLatch(1);
 			async.submitToExecutor(() -> {
 				assertEquals(1, 2);
 			});
@@ -262,7 +262,7 @@ public class AsyncTestHelperTests {
 		AtomicInteger counter = new AtomicInteger(0);
 		AsyncTestHelper.retryOnFailure(5, () -> {
 			AsyncTestHelper async = new AsyncTestHelper();
-			CountDownLatch latch = async.getNewLatch(1);
+			CountDownLatch latch = async.getNewCountdownLatch(1);
 			async.submitToExecutor(() -> {
 				if (counter.getAndIncrement() < 3) {
 					throw new RuntimeException("Failed.");
@@ -280,7 +280,7 @@ public class AsyncTestHelperTests {
 		assertThrows(RuntimeException.class, () -> {
 			AsyncTestHelper.retryOnFailure(5, () -> {
 				AsyncTestHelper async = new AsyncTestHelper();
-				CountDownLatch latch = async.getNewLatch(1);
+				CountDownLatch latch = async.getNewCountdownLatch(1);
 				async.submitToExecutor(() -> {
 					counter.getAndIncrement();
 					throw new RuntimeException("Failed.");
@@ -289,6 +289,45 @@ public class AsyncTestHelperTests {
 			});
 		});
 		assertEquals(5, counter.get());
+	}
+
+	@Test
+	public void shouldSchedulePeriodically() throws Throwable {
+		AsyncTestHelper async = new AsyncTestHelper();
+		CountDownLatch latch = async.getNewCountdownLatch(3);
+		async.schedulePeriodic(0, 500, TimeUnit.MILLISECONDS, () -> {
+			latch.countDown();
+		});
+		// will fail from timeout if callback is not called periodically
+		async.await();
+	}
+
+	@Test
+	public void shouldSleepUntilExceptionThrown() throws Exception {
+		assertThrows(IllegalArgumentException.class, () -> {
+			AsyncTestHelper async = new AsyncTestHelper();
+			async.submitToExecutor(() -> {
+				Thread.sleep(1000);
+				async.fail(new IllegalArgumentException("Failure."));
+			});
+			async.sleepAndThrowIfFailureOccurs(10, TimeUnit.SECONDS);
+		});
+	}
+
+	// this is a code-coverage test..
+	@Test
+	public void shouldSleepAndFailAfter() throws Exception {
+		for (int i = 0; i < 1000; i++) {
+			try {
+				AsyncTestHelper async = new AsyncTestHelper();
+				async.submitToExecutor(1, TimeUnit.MICROSECONDS, () -> {
+					async.fail("Supposed to fail to fulfill code-coverage.");
+				});
+				async.sleepAndThrowIfFailureOccurs(1, TimeUnit.MICROSECONDS);
+			} catch (Throwable e) {
+				// ignore, want this to happen.
+			}
+		}
 	}
 
 }

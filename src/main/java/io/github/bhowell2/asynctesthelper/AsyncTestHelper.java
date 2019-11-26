@@ -1,4 +1,4 @@
-package io.github.bhowell2;
+package io.github.bhowell2.asynctesthelper;
 
 import java.util.Arrays;
 import java.util.List;
@@ -7,6 +7,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -15,6 +16,11 @@ import java.util.concurrent.TimeoutException;
  * @author Blake Howell
  */
 public class AsyncTestHelper {
+
+	@FunctionalInterface
+	public interface ThrowableRunnable {
+		void run() throws Throwable;
+	}
 
 	public static volatile long DEFAULT_AWAIT_TIME = 1;
 	public static volatile TimeUnit DEFAULT_AWAIT_TIME_UNIT = TimeUnit.MINUTES;
@@ -60,6 +66,7 @@ public class AsyncTestHelper {
 	 * Submits a task to run asynchronously on another thread. This already
 	 * wraps the {@link ThrowableRunnable} so that errors are propagated to
 	 * the test thread.
+	 *
 	 * @param runnable to be wrapped and run on another thread
 	 */
 	public void submitToExecutor(ThrowableRunnable runnable) {
@@ -70,6 +77,7 @@ public class AsyncTestHelper {
 	 * Submits a task to run asynchronously on another thread. This already
 	 * wraps the {@link ThrowableRunnable} so that errors are propagated to
 	 * the test thread.
+	 *
 	 * @param delay amount of time (in {@code timeUnit}) to wait before running
 	 * @param timeUnit time unit for {@code delay}
 	 * @param runnable to be wrapped and run on another thread
@@ -79,7 +87,23 @@ public class AsyncTestHelper {
 	}
 
 	/**
+	 * Allows for scheduling some type of async event that will run periodically.
+	 * A use case for this is that the user may want to assert some condition
+	 * that may happen within some interval and then complete
+	 *
+	 * @param initialDelay how long to wait before first run
+	 * @param period how often to (attempt to) rerun
+	 * @param timeUnit time unit of {@code period} and {@code initialDelay}
+	 * @param runnable to run periodically
+	 * @return the scheduled future that will run periodically so that it may be cancelled if desired
+	 */
+	public ScheduledFuture<?> schedulePeriodic(long initialDelay, long period, TimeUnit timeUnit, ThrowableRunnable runnable) {
+		return scheduler.scheduleAtFixedRate(getWrappedRunnable(runnable), initialDelay, period, timeUnit);
+	}
+
+	/**
 	 * See {@link ExecutorService#shutdownNow()}.
+	 *
 	 * @return non-executed tasks with the executor service
 	 */
 	public List<Runnable> shutdownNow() {
@@ -111,6 +135,7 @@ public class AsyncTestHelper {
 	/**
 	 * Whether or not the executor service has been shutdown.
 	 * See {@link ExecutorService#isShutdown()}.
+	 *
 	 * @return whether or not the executor service has been shutdown.
 	 */
 	public boolean isShutdown() {
@@ -120,6 +145,7 @@ public class AsyncTestHelper {
 	/**
 	 * Whether or not the executor service has been terminated.
 	 * See {@link ExecutorService#isTerminated()}.
+	 *
 	 * @return whether or not the executor service has been terminated.
 	 */
 	public boolean isTerminated() {
@@ -140,7 +166,7 @@ public class AsyncTestHelper {
 	 * @param count how many countdowns the latch needs to close
 	 * @return the created countdown latch
 	 */
-	public synchronized CountDownLatch getNewLatch(int count) {
+	public synchronized CountDownLatch getNewCountdownLatch(int count) {
 		CountDownLatch latch = new CountDownLatch(count);
 		CountDownLatch[] copy = Arrays.copyOf(this.latches, this.latches.length + 1);
 		copy[copy.length - 1] = latch;
@@ -148,12 +174,17 @@ public class AsyncTestHelper {
 		return latch;
 	}
 
+	public boolean helperFailed() {
+		return this.throwable != null;
+	}
+
 	/**
 	 * This is not synchronized, because it would cause issues with calls
-	 * to {@link #getNewLatch(int)} that occur in separate threads - due to
+	 * to {@link #getNewCountdownLatch(int)} that occur in separate threads - due to
 	 * {@link #await(long, TimeUnit)} querying this many times to check
 	 * if the latches have been cleared and thus can exit.
-	 * @return
+	 *
+	 * @return whether or not all latches created by this instance have closed
 	 */
 	private boolean allLatchesCleared() {
 		for (int i = 0; i < this.latches.length; i++) {
@@ -166,6 +197,7 @@ public class AsyncTestHelper {
 
 	/**
 	 * Fails the helper so that the async error will be propagated to the test thread.
+	 *
 	 * @param message failure message to be returned to fail the test.
 	 */
 	public void fail(String message) {
@@ -174,6 +206,7 @@ public class AsyncTestHelper {
 
 	/**
 	 * Fails the helper so that the async error will be propagated to the test thread.
+	 *
 	 * @param throwable throwable to be returned to fail the test.
 	 */
 	public void fail(Throwable throwable) {
@@ -210,6 +243,8 @@ public class AsyncTestHelper {
 	}
 
 	/**
+	 * Wraps a callable so that if it throws an exception it will fail the
+	 * test and rethrow the exception to the caller.
 	 *
 	 * @param callable the callable to wrap to catch async exceptions
 	 * @param <T> the return type
@@ -236,9 +271,15 @@ public class AsyncTestHelper {
 	}
 
 	/**
+	 * Will block calling thread (almost always the test thread) until latches
+	 * (created on this instance) complete, an async throwable is caught (was
+	 * wrapped by {@link #wrapAsyncThrowable(ThrowableRunnable)}), or until
+	 * timeout - which will throw an exception.
+	 *
 	 * Awaits for the default amount of time {@link AsyncTestHelper#DEFAULT_AWAIT_TIME}
 	 * {@link AsyncTestHelper#DEFAULT_AWAIT_TIME_UNIT}. These can be overridden by the
 	 * user for their tests.
+	 *
 	 * @throws Throwable if an error occurred in an async operation (so long as it was wrapped)
 	 */
 	public void await() throws Throwable {
@@ -246,16 +287,45 @@ public class AsyncTestHelper {
 	}
 
 	/**
-	 * Should be called on main test thread to block until latches complete
-	 * or until timeout - which will throw an exception.
+	 * Will block calling thread (almost always the test thread) until latches
+	 * (created on this instance) complete, an async throwable is caught (was
+	 * wrapped by {@link #wrapAsyncThrowable(ThrowableRunnable)}), or until
+	 * timeout - which will throw an exception.
+	 *
 	 * @param timeout the amount of time to wait for latches to close
 	 * @param timeUnit time unit for {@code timeout}
 	 * @throws Throwable if an error occurred in an async operation (so long as it was wrapped)
 	 */
 	public void await(long timeout, TimeUnit timeUnit) throws Throwable {
+		await(timeout, timeUnit, null);
+	}
+
+	private Callable<Boolean> makeTimeExpiredFromNowCallable(long timeout, TimeUnit timeUnit) {
 		long startTime = System.nanoTime();
-		Callable<Boolean> awaitTimeExpired =
-			() -> timeUnit.convert((System.nanoTime() - startTime), TimeUnit.NANOSECONDS) > timeout;
+		return () -> timeUnit.convert((System.nanoTime() - startTime), TimeUnit.NANOSECONDS) >= timeout;
+	}
+
+	/**
+	 * Will block calling thread (almost always the test thread) until latches
+	 * (created on this instance) complete, an async throwable is caught (was
+	 * wrapped by {@link #wrapAsyncThrowable(ThrowableRunnable)}), or until
+	 * timeout - which will throw an exception.
+	 *
+	 * @param timeout the amount of time to wait for latches to close
+	 * @param timeUnit time unit for {@code timeout}
+	 * @throws Throwable if an error occurred in an async operation (so long as it was wrapped)
+	 */
+	public void await(long timeout, TimeUnit timeUnit, String message) throws Throwable {
+		message = "Await timed out after " + timeout + " " + timeUnit.name() + ". " +
+			(message != null ? message : "");
+		/*
+		 * Need to use >=, because when converting from a finer-grained interval
+		 * to a less-fine-grained interval, it shaves off the remainder.
+		 * E.g., when using a timeout in minutes, the granularity is a minute, so
+		 * if it was desired to timeout after a minute, >= must be used or else
+		 * 1 > 1 is false and would have to wait until 2 minutes elapsed.
+		 * */
+		Callable<Boolean> awaitTimeExpired = makeTimeExpiredFromNowCallable(timeout, timeUnit);
 		while (true) {
 			// check for error first, then check if latches have been cleared then check expiration
 			if (this.throwable != null) {
@@ -265,8 +335,36 @@ public class AsyncTestHelper {
 			} else if (completeImmediately) {
 				break;
 			} else if (awaitTimeExpired.call()) {
-				throw new TimeoutException("Await timed out.");
+				throw new TimeoutException(message);
 			}
+		}
+	}
+
+	/**
+	 * Sleeps the thread and checks if an exception was thrown asynchronously.
+	 * This is useful in cases where it is difficult to use latches (e.g., waiting
+	 * to make sure an event or exception DOES NOT occur) and allows for waiting
+	 * and then checking if an event occurred. This does not actually call sleep,
+	 * but spins until the timeout expires.
+	 *
+	 * This is more succinct than creating a latch, executing on another thread,
+	 * sleeping the thread for X amount of time, and then counting down the latch
+	 * after the time expires.
+	 *
+	 * @param sleepTime how long to sleep the current thread
+	 * @param timeUnit {@code sleepTime}'s time unit
+	 */
+	public void sleepAndThrowIfFailureOccurs(long sleepTime, TimeUnit timeUnit) throws Throwable {
+		Callable<Boolean> waitTimeExpired = makeTimeExpiredFromNowCallable(sleepTime, timeUnit);
+		while (!waitTimeExpired.call()) {
+			// check during sleep time if an error occurred.
+			if (this.helperFailed()) {
+				throw this.throwable;
+			}
+		}
+		// check 1 more time for good measure.
+		if (this.helperFailed()) {
+			throw this.throwable;
 		}
 	}
 
