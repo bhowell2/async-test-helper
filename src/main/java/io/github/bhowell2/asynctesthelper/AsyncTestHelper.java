@@ -292,6 +292,23 @@ public class AsyncTestHelper {
 	 * wrapped by {@link #wrapAsyncThrowable(ThrowableRunnable)}), or until
 	 * timeout - which will throw an exception.
 	 *
+	 * Awaits for the default amount of time {@link AsyncTestHelper#DEFAULT_AWAIT_TIME}
+	 * {@link AsyncTestHelper#DEFAULT_AWAIT_TIME_UNIT}. These can be overridden by the
+	 * user for their tests.
+	 *
+	 * @param message optional message to append to timeout message
+	 * @throws Throwable if an error occurred in an async operation (so long as it was wrapped)
+	 */
+	public void await(String message) throws Throwable {
+		await(DEFAULT_AWAIT_TIME, DEFAULT_AWAIT_TIME_UNIT, message);
+	}
+
+	/**
+	 * Will block calling thread (almost always the test thread) until latches
+	 * (created on this instance) complete, an async throwable is caught (was
+	 * wrapped by {@link #wrapAsyncThrowable(ThrowableRunnable)}), or until
+	 * timeout - which will throw an exception.
+	 *
 	 * @param timeout the amount of time to wait for latches to close
 	 * @param timeUnit time unit for {@code timeout}
 	 * @throws Throwable if an error occurred in an async operation (so long as it was wrapped)
@@ -313,6 +330,7 @@ public class AsyncTestHelper {
 	 *
 	 * @param timeout the amount of time to wait for latches to close
 	 * @param timeUnit time unit for {@code timeout}
+	 * @param message optional message to append to timeout message
 	 * @throws Throwable if an error occurred in an async operation (so long as it was wrapped)
 	 */
 	public void await(long timeout, TimeUnit timeUnit, String message) throws Throwable {
