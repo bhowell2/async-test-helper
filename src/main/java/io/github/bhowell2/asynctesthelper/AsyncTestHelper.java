@@ -166,7 +166,7 @@ public class AsyncTestHelper {
 	 * @param count how many countdowns the latch needs to close
 	 * @return the created countdown latch
 	 */
-	public synchronized CountDownLatch getNewCountdownLatch(int count) {
+	public synchronized CountDownLatch getNewCountDownLatch(int count) {
 		CountDownLatch latch = new CountDownLatch(count);
 		CountDownLatch[] copy = Arrays.copyOf(this.latches, this.latches.length + 1);
 		copy[copy.length - 1] = latch;
@@ -180,7 +180,7 @@ public class AsyncTestHelper {
 
 	/**
 	 * This is not synchronized, because it would cause issues with calls
-	 * to {@link #getNewCountdownLatch(int)} that occur in separate threads - due to
+	 * to {@link #getNewCountDownLatch(int)} that occur in separate threads - due to
 	 * {@link #await(long, TimeUnit)} querying this many times to check
 	 * if the latches have been cleared and thus can exit.
 	 *
