@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "io.github.bhowell2"
-version = "1.1.0"
+version = "1.2.0"
 
 repositories {
   // Use jcenter for resolving dependencies.

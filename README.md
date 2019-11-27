@@ -17,14 +17,14 @@ This may be obtained from the Maven Central repository.
 <dependency>
     <groupId>io.github.bhowell2</groupId>
     <artifactId>async-test-helper</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
 #### Gradle
 ```groovy
 dependencies {
-    compile "io.github.bhowell2:async-test-helper:1.1.0"
+    compile "io.github.bhowell2:async-test-helper:1.2.0"
 }
 ```
 
